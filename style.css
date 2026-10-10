@@ -296,3 +296,7 @@ body.compact #panel .x { display: none; }
 #piece .fig { bottom: 2px; }
 #core small { top: 50%; left: calc(100% + 10px); margin-top: 0; transform: translateY(-50%); }
 body.transparent #hud { display: none; } /* transparent overlay = markers, road thread, piece (+ event banners) only */
+
+/* doppelganger piece (wider figure) */
+.pk-piece-doppel #piece .fig { left: -50px; width: 100px; height: 96px; }
+.pk-piece-doppel #piece.small .fig { left: -40px; width: 80px; height: 77px; }

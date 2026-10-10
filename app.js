@@ -277,7 +277,8 @@
   core.style.left = CELLS[100].x + 'px'; core.style.top = CELLS[100].y + 'px';
   core.style.setProperty('--hy', (SUMMIT_CRYSTAL.y - CELLS[100].y) + 'px');
   board.appendChild(core);
-  var PIECE_KIND = params.get('piece') === 'shard' ? 'piece-shard' : 'piece-mage';
+  var PIECE_KIND = ({shard:'piece-shard', mage:'piece-mage'})[params.get('piece')] || 'piece-doppel';
+  document.documentElement.classList.add('pk-' + PIECE_KIND);
   var piece = el('div', '', '<i class="aura"></i><div class="fig"><picture><source type="image/webp" srcset="assets/' + PIECE_KIND + '.webp"><img src="assets/' + PIECE_KIND + '.png" alt="Game piece" draggable="false"></picture></div>');
   piece.id = 'piece'; board.appendChild(piece);
   var pieceFig = piece.querySelector('.fig');
