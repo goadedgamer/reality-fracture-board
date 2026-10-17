@@ -11,7 +11,12 @@
   var OBS = !!FORCE.obs || params.get('obs') === '1';
   var TRANSPARENT = !!FORCE.transparent || params.get('transparent') === '1';
   var DOCK = params.get('dock') === '1';
-  var KEY = 'rfa-board-state-v1', HKEY = 'rfa-board-history-v1', CH = 'rfa-board-sync';
+  // Storage namespace: a copy served from a /preview/ folder (or RFA_FORCE.ns) keeps its own state, so it can never
+  // disturb the live board on the same origin (localStorage is shared per origin, not per folder).
+  var NS = FORCE.ns || params.get('ns') || (/\/preview\//.test(location.pathname) ? 'preview' : '');
+  var SFX = NS ? '-' + String(NS).replace(/[^a-z0-9_-]/gi, '') : '';
+  var KEY = 'rfa-board-state-v1' + SFX, HKEY = 'rfa-board-history-v1' + SFX, CH = 'rfa-board-sync' + SFX;
+  window.RFA_STORAGE = { ns: NS, key: KEY, history: HKEY, channel: CH };
 
   // ---------------------------------------------------------------- prize data (from prizes.js / PRIZE_LIST.csv)
   function parseCSV(text) {
@@ -74,7 +79,19 @@
   function zoneOf(n) { if (n <= 0) return ZONES[0]; for (var i = 0; i < ZONES.length; i++) if (n >= ZONES[i].from && n <= ZONES[i].to) return ZONES[i]; return ZONES[5]; }
   function tileColor(n) { return (n >= 21 && n <= 40) ? SCHOOLS[Math.floor((n - 21) / 4)][1] : zoneOf(n).color; }
   var LANE_NAME = { MV: 'Multiverse', EV: 'Echoverse' };
-  var COIN_SPACES = [60, 90];
+  // Prize markers follow the ACTIVE lane: each lane has its own coin-flip and big-prize spaces (from the prize data).
+  var MAJOR_CATS = ['Standard Booster', 'Booster of Choice', 'Premium Booster', 'Level 1 Spin', 'Level 2 Premium Spin'];
+  function markerKind(n, lane) {
+    var sp = SPACES[n]; if (!sp) return 'plain';
+    if (sp.rift) return 'rift';
+    var c = sp[lane].cat;
+    if (c === 'Reality Coin Flip') return 'coin';
+    if (MAJOR_CATS.indexOf(c) >= 0) return 'major';
+    if (c === 'Premium Raw Draw') return 'prem';
+    return 'plain';
+  }
+  function coinSpaces(lane) { var a = []; for (var i = 1; i < 100; i++) if (markerKind(i, lane) === 'coin') a.push(i); return a; }
+  function isCoinSpace(n, lane) { return n >= 1 && n <= 99 && markerKind(n, lane) === 'coin'; }
   var COIN_TEXT = { H: { side: 'HEADS', prize: '2 Reality Fracture Play Boosters' }, T: { side: 'TAILS', prize: 'Reality Fracture Collector Booster' } };
 
   // ---------------------------------------------------------------- geometry: spaces traced along the painted spiral road
@@ -248,29 +265,44 @@
   var DESTS = {};
   SPACES.forEach(function (sp) { if (sp && sp.rift) DESTS[sp.rift.to] = sp.n; });
   var TILES = [];
+  function markerHTML(n, kind) {
+    if (kind === 'coin') return '<i class="ring"></i><i class="face"></i><b>' + n + '</b><em>Coin Flip</em>';
+    if (kind === 'major') return '<i class="star"></i><i class="gem"></i><b>' + n + '</b>';
+    if (kind === 'prem') return '<i class="spark"></i><i class="gem"></i><b>' + n + '</b>';
+    return '<i class="gem"></i><b>' + n + '</b>';
+  }
   for (var n = 1; n <= 99; n++) {
     var sp = SPACES[n]; if (!sp) continue;
     var c = CELLS[n], m = el('div', 'sp ' + zoneOf(n).cls);
-    var isCoin = COIN_SPACES.indexOf(n) >= 0 || sp.MV.cat === 'Reality Coin Flip';
     if (n >= 81) m.classList.add('hi');
     if (sp.rift) {
       m.classList.add('rift');
       m.innerHTML = '<i class="swirl"></i>' + riftCrack(n * 31) + '<b>' + n + '</b><em>+' + sp.rift.plus + ' \u2192 ' + sp.rift.to + '</em>';
       m.title = 'Fracture Rift: ' + n + ' \u2192 ' + sp.rift.to;
-    } else if (isCoin) {
-      m.classList.add('coin');
-      m.innerHTML = '<i class="ring"></i><i class="face"></i><b>' + n + '</b><em>Coin Flip</em>';
-      m.title = 'Reality Coin Flip';
-    } else if (n % 5 === 0) {
-      m.classList.add('major');
-      m.innerHTML = '<i class="star"></i><i class="gem"></i><b>' + n + '</b>';
-    } else {
-      m.innerHTML = '<i class="gem"></i><b>' + n + '</b>';
     }
     if (DESTS[n]) m.classList.add('dest');
     m.style.left = c.x + 'px'; m.style.top = c.y + 'px'; m.dataset.n = n;
     board.appendChild(m); TILES[n] = m;
   }
+  // (re)draw the non-rift markers for one lane; tiles whose marker changes get a short "reshuffle" animation.
+  var markerLane = null;
+  function applyLaneMarkers(lane) {
+    if (lane === markerLane) return;
+    var animate = markerLane !== null;
+    for (var i = 1; i <= 99; i++) {
+      var t = TILES[i]; if (!t || t.classList.contains('rift')) continue;
+      var kind = markerKind(i, lane);
+      if (t.dataset.kind === kind) continue;
+      t.classList.remove('coin', 'major', 'prem');
+      if (kind !== 'plain') t.classList.add(kind);
+      t.innerHTML = markerHTML(i, kind);
+      t.title = kind === 'plain' ? '' : (SPACES[i][lane].cat === 'Reality Coin Flip' ? 'Reality Coin Flip' : SPACES[i][lane].name + ' \u2014 ' + SPACES[i][lane].detail);
+      t.dataset.kind = kind;
+      if (animate && t.animate) t.animate([{ transform: 'scale(.2) rotate(-90deg)', opacity: 0 }, { transform: 'scale(1.25)', opacity: 1, offset: .7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 520, delay: (i % 10) * 18, easing: 'cubic-bezier(.2,.9,.3,1.2)', fill: 'backwards' });
+    }
+    markerLane = lane; document.body.dataset.markers = lane;
+  }
+  applyLaneMarkers(state.lane);
   var start = el('div', '', '<b>Start</b><small>Hexhaven Gates</small>'); start.id = 'start';
   start.style.left = CELLS[0].x + 'px'; start.style.top = CELLS[0].y + 'px'; board.appendChild(start);
   var core = el('div', '', '<i class="halo"></i><i class="rays"></i><b>100</b><small>Heart of the Echoverse</small>'); core.id = 'core';
@@ -344,13 +376,13 @@
       '<div class="card"><div class="h"><span>REALITY LANE</span><span>L</span></div><div class="row"><button class="b" id="cFlip"></button></div></div>' +
       '<div class="card"><div class="h"><span>EMPOWER JACE · J / Shift+J</span><span id="cBonus"></span></div><div class="row" style="align-items:center"><div class="pipsmini" id="cPips"></div></div>' +
       '<div class="row"><button class="b" id="cJm">−1</button><button class="b cold" id="cJp">+1 Jace card</button><button class="b" id="cJr">Reset meter</button></div></div>' +
-      '<div class="card"><div class="h"><span>REALITY COIN FLIP</span><span>spaces 60 / 90 · F</span></div><div class="row"><button class="b gold" id="cCoin">Flip the Reality Coin</button></div><div class="log" id="cCoins"></div></div>' +
+      '<div class="card"><div class="h"><span>REALITY COIN FLIP</span><span id="cCoinSp">coin spaces · F</span></div><div class="row"><button class="b gold" id="cCoin">Flip the Reality Coin</button></div><div class="log" id="cCoins"></div></div>' +
       '<div class="card"><div class="h"><span>CLIMBER (optional)</span></div><div class="row"><input type="text" id="cCust" maxlength="40" placeholder="Customer name"><button class="b" id="cCustSet" style="flex:0 0 70px">Set</button></div></div>' +
       '<div class="card"><div class="h"><span>CAMERA ZOOM <b id="cZoomV"></b></span><span>+ / −</span></div><input type="range" id="cZoom" min="1" max="3" step="0.1"></div>' +
       '<div class="card"><div class="row"><button class="b" id="cUndo">↶ Undo (Ctrl+Z)</button><button class="b danger" id="cReset">Reset board…</button></div></div>' +
       '<div class="card keys"><div class="h"><span>KEYBOARD (also works in OBS via Interact)</span></div>' +
       '<kbd>→</kbd>/<kbd>Space</kbd> +1 &nbsp; <kbd>←</kbd> −1 &nbsp; <kbd>PgUp</kbd> +5 &nbsp; <kbd>PgDn</kbd> −5<br><kbd>M</kbd> move-by-N box &nbsp; <kbd>G</kbd> jump box &nbsp; <kbd>L</kbd> flip lane<br>' +
-      '<kbd>J</kbd> Jace +1 &nbsp; <kbd>Shift</kbd>+<kbd>J</kbd> Jace −1 &nbsp; <kbd>F</kbd> coin flip (60/90)<br><kbd>Enter</kbd> apply rift &nbsp; <kbd>Esc</kbd> dismiss &nbsp; <kbd>C</kbd> hide/show controls<br><kbd>+</kbd>/<kbd>−</kbd> zoom &nbsp; <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo &nbsp; Reset is never on a single key.</div>' +
+      '<kbd>J</kbd> Jace +1 &nbsp; <kbd>Shift</kbd>+<kbd>J</kbd> Jace −1 &nbsp; <kbd>F</kbd> coin flip (coin spaces)<br><kbd>Enter</kbd> apply rift &nbsp; <kbd>Esc</kbd> dismiss &nbsp; <kbd>C</kbd> hide/show controls<br><kbd>+</kbd>/<kbd>−</kbd> zoom &nbsp; <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo &nbsp; Reset is never on a single key.</div>' +
       '<div class="card links"><div class="h"><span>VIEWS</span></div><a href="?obs=1" target="_blank">Clean OBS view (?obs=1) ↗</a><a href="?obs=1&amp;transparent=1" target="_blank">Transparent OBS view ↗</a><a href="?dock=1" target="_blank">Compact controls (OBS dock) ↗</a></div>' +
       '<div class="card"><div class="h"><span>ACTIVITY LOG</span></div><div class="log" id="cLog"></div></div>';
     app.appendChild(panel);
@@ -373,7 +405,7 @@
 
   // ---------------------------------------------------------------- rendering
   function syncView() { view.pos = state.pos; view.lane = state.lane; view.meter = state.meter; }
-  function setLaneClass(l) { document.body.classList.toggle('lane-MV', l === 'MV'); document.body.classList.toggle('lane-EV', l === 'EV'); }
+  function setLaneClass(l) { document.body.classList.toggle('lane-MV', l === 'MV'); document.body.classList.toggle('lane-EV', l === 'EV'); applyLaneMarkers(l); }
   function placePiece(n, mode) {
     piece.classList.remove('glide', 'instant');
     if (mode) piece.classList.add(mode);
@@ -432,9 +464,10 @@
     var pm = ''; for (var i = 0; i < 5; i++) pm += '<i class="' + (i < state.meter ? 'on' : '') + '"></i>';
     $('cPips').innerHTML = pm + '<span style="margin-left:8px">' + state.meter + '/5</span>';
     $('cBonus').textContent = 'bonus spins: ' + (state.bonusTotal || 0);
-    var atCoin = COIN_SPACES.indexOf(n) >= 0;
+    var cs = coinSpaces(lane), atCoin = isCoinSpace(n, lane);
+    $('cCoinSp').textContent = 'spaces ' + cs.join(' / ') + ' · F';
     $('cCoin').disabled = !atCoin;
-    $('cCoin').textContent = atCoin ? (state.coinVisit ? 'Flip again (already flipped here)…' : 'Flip the Reality Coin (space ' + n + ')') : 'Coin flip only on 60 or 90';
+    $('cCoin').textContent = atCoin ? (state.coinVisit ? 'Flip again (already flipped here)…' : 'Flip the Reality Coin (space ' + n + ')') : 'Coin flip only on ' + cs.join(' or ') + ' (' + LANE_NAME[lane] + ')';
     $('cCoins').innerHTML = state.coins.slice(-5).reverse().map(function (c) { return fmtTime(c.at) + ' · space ' + c.space + ' · <b>' + COIN_TEXT[c.result].side + '</b> — ' + COIN_TEXT[c.result].prize; }).join('<br>');
     if (document.activeElement !== $('cCust')) $('cCust').value = state.customer || '';
     $('cZoom').value = state.zoom; $('cZoomV').textContent = (+state.zoom).toFixed(1) + '×';
@@ -730,7 +763,7 @@
     } else { if (from <= 0) return; commit(function (s) { s.meter = from - 1; }, { type: 'jace', from: from, to: from - 1 }, { log: 'Jace −1 → ' + (from - 1) + '/5' }); }
   }
   function coinFlip(force) {
-    var n = state.pos; if (COIN_SPACES.indexOf(n) < 0) { flash('The Reality Coin Flip is only on spaces 60 and 90'); return; }
+    var n = state.pos; if (!isCoinSpace(n, state.lane)) { flash('In the ' + LANE_NAME[state.lane] + ' the Reality Coin Flip is only on spaces ' + coinSpaces(state.lane).join(' and ')); return; }
     if (state.coinVisit && !force) {
       var lastC = state.coins[state.coins.length - 1];
       if (OBS) return;
@@ -817,7 +850,7 @@
     else if (k === 'l' || k === 'L') flipLane();
     else if (k === 'J') jace(-1);
     else if (k === 'j') jace(1);
-    else if (k === 'f' || k === 'F') { if (COIN_SPACES.indexOf(state.pos) >= 0) coinFlip(false); }
+    else if (k === 'f' || k === 'F') { if (isCoinSpace(state.pos, state.lane)) coinFlip(false); }
     else if (k === 'c' || k === 'C') { if (!OBS) togglePanel(); }
     else if (k === '+' || k === '=') setZoom((state.zoom || 1) + 0.1);
     else if (k === '-' || k === '_') setZoom((state.zoom || 1) - 0.1);
@@ -826,7 +859,8 @@
   });
 
   // test/debug hook used by the automated checks
-  window.RFA = { get state() { return clone(state); }, get view() { return clone(view); }, spaces: SPACES, cells: CELLS, centerOf: centerOf, errors: DATA_ERRORS };
+  window.RFA = { get state() { return clone(state); }, get view() { return clone(view); }, spaces: SPACES, cells: CELLS, centerOf: centerOf, errors: DATA_ERRORS,
+    storage: window.RFA_STORAGE, markerKind: markerKind, coinSpaces: coinSpaces, get markerLane() { return markerLane; } };
 
   fit(); syncView(); renderAll();
   requestAnimationFrame(fit);

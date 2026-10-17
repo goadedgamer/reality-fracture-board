@@ -56,12 +56,15 @@ body.lane-EV .sp b { color: #fff; text-shadow: 0 0 4px #2a1080, 0 1px 1px #000; 
 .sp .gem { position: absolute; inset: 4px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); }
 .sp.hi { width: 30px; height: 30px; margin: -15px 0 0 -15px; }
 .sp.hi b { font-size: 13px; }
-/* every 5th: bigger star-crowned medallion */
+/* big prize spaces of the ACTIVE lane (boosters + spins): bigger star-crowned medallion. app.js swaps these on a lane flip. */
 .sp.major { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
 .sp.major b { font: 900 18px/1 var(--deco); }
 .sp.major .star { position: absolute; inset: -9px; z-index: 0; background: conic-gradient(from 0deg, transparent 0 5%, var(--lane-glow) 6% 7%, transparent 8% 17%, var(--lane-glow) 18% 19%, transparent 20% 30%, var(--lane-glow) 31% 32%, transparent 33% 42%, var(--lane-glow) 43% 44%, transparent 45% 55%, var(--lane-glow) 56% 57%, transparent 58% 67%, var(--lane-glow) 68% 69%, transparent 70% 80%, var(--lane-glow) 81% 82%, transparent 83% 92%, var(--lane-glow) 93% 94%, transparent 95%);
   border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 55%, #000 56%); mask: radial-gradient(circle, transparent 55%, #000 56%); opacity: .95; animation: spin 18s linear infinite; }
 .sp.major.hi { width: 38px; height: 38px; margin: -19px 0 0 -19px; }
+/* premium raw draw spaces of the active lane: a small dashed sparkle halo (same size as a plain gem) */
+.sp.prem .spark { position: absolute; inset: -5px; border-radius: 50%; border: 1.5px dotted var(--lane-glow); opacity: .9; animation: spin 14s linear infinite; z-index: 0; }
+.sp.prem::before { content: ""; position: absolute; right: -3px; top: -4px; width: 9px; height: 9px; z-index: 4; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); filter: drop-shadow(0 0 3px var(--lane-glow)); }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* rifts: swirling vortex + crack + destination glow */
 .sp.rift { width: 46px; height: 46px; margin: -23px 0 0 -23px; background: radial-gradient(circle, #ffffff 0, #b9ffff 14%, #2fb7d8 38%, #2a1060 72%, #0a0420 100%) !important;
