@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reality Fracture Adventure - Prize List</title>
+<style>
+@font-face{font-family:Cinzel;src:url(assets/fonts/cinzel.woff2) format("woff2")}
+@font-face{font-family:CinzelD;src:url(assets/fonts/cinzel-decorative-bold.woff2) format("woff2")}
+@font-face{font-family:Corm;src:url(assets/fonts/cormorant.woff2) format("woff2")}
+*{box-sizing:border-box}
+body{margin:0;color:#f3ead8;font-family:Corm,Georgia,serif;font-size:18px;background:#120a22 url(assets/board-echoverse-1920.jpg) center/cover fixed}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 14px 60px;background:rgba(14,8,28,.86);min-height:100vh}
+h1{font-family:CinzelD,serif;text-align:center;margin:.2em 0 0;font-size:clamp(26px,5vw,44px);background:linear-gradient(90deg,#ffd27a,#fff,#b98cff);-webkit-background-clip:text;color:transparent}
+.sub{text-align:center;font-family:Cinzel,serif;letter-spacing:.15em;color:#cbb6ff;margin-bottom:18px}
+.rules{background:rgba(255,255,255,.05);border:1px solid rgba(255,210,122,.3);border-radius:10px;padding:12px 18px;margin-bottom:18px}
+.rules li{margin:.25em 0}
+table{width:100%;border-collapse:collapse;font-size:16px}
+th{font-family:Cinzel,serif;position:sticky;top:0;background:#1d1236;padding:8px 6px;text-align:left;font-size:14px}
+th.mv{color:#ffd27a} th.ev{color:#c4a3ff}
+td{padding:6px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+td.n{font-family:Cinzel,serif;font-weight:bold;width:42px;text-align:center}
+tr.zone td{background:rgba(185,140,255,.15);font-family:Cinzel,serif;color:#fff;letter-spacing:.1em;font-size:14px}
+tr.raw td.p{color:#a99fbd}
+tr.special td.p{color:#fff;font-weight:600}
+tr.rift td.p{color:#7fe3ff;font-style:italic}
+tr.big td{background:rgba(255,210,122,.1)}
+.foot{margin-top:18px;font-size:14px;color:#a99fbd;text-align:center}
+</style></head><body><div class="wrap">
+<h1>Reality Fracture Adventure</h1>
+<div class="sub">PRIZE LIST · JACE'S SPIRAL TOWER</div>
+<div class="rules"><ul>
+<li>Each spot opens 3 Reality Fracture Play Boosters live, and you keep every card.</li>
+<li>Every mythic rare moves the piece up the tower by its mana value. No mythic means no move and no prize.</li>
+<li>A rare or mythic echoed pair flips the board between the <b style="color:#ffd27a">Multiverse</b> and the <b style="color:#c4a3ff">Echoverse</b> before the piece moves. Each reality has its own prizes.</li>
+<li>Land exactly on a rift and the piece warps forward. You win the prize where it ends up.</li>
+<li>Every Jace card fills the Jace meter, and filling it to 5 earns a bonus Level 1 wheel spin.</li>
+<li>Spaces 1-99 need an exact landing. Reaching or passing 100 wins a Reality Fracture Collector Booster and resets the board.</li>
+</ul></div>
+<table><thead><tr><th>#</th><th class="mv">Multiverse prize</th><th class="ev">Echoverse prize</th></tr></thead><tbody id="tb"></tbody></table>
+<div class="foot">Prizes are bonuses included with your purchase. Not affiliated with or endorsed by Wizards of the Coast.</div>
+</div>
+<script src="prizes.js"></script>
+<script>
+function parse(t){var rows=[],row=[],f='',q=false;for(var i=0;i<t.length;i++){var c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'){row.push(f);if(row.join('').trim())rows.push(row);row=[];f=''}else if(c!='\r')f+=c}if(f||row.length){row.push(f);rows.push(row)}return rows}
+var r=parse(window.RFA_PRIZE_CSV.trim()).slice(1),tb=document.getElementById('tb'),zone='';
+function clean(p,rift){if(/^Fracture Rift/.test(p))return 'Rift: warps '+rift.replace('Rift ','').replace(' to ',' to space ');return p.replace(/ \u2014 /g,' \u2014 ')}
+r.forEach(function(x){var n=x[0],z=x[1],cat=x[3]+'|'+x[5];
+ if(z!=zone){zone=z;var zr=document.createElement('tr');zr.className='zone';zr.innerHTML='<td colspan="3">'+z+'</td>';tb.appendChild(zr)}
+ var tr=document.createElement('tr');var raw=x[3]=='Raw Draw'&&x[5]=='Raw Draw',rift=x[3]=='Rift';
+ tr.className=rift?'rift':raw?'raw':'special';if(/Coin Flip|Grand Prize|Level 2/.test(cat))tr.className+=' big';
+ tr.innerHTML='<td class="n">'+n+'</td><td class="p">'+clean(x[2],x[6])+'</td><td class="p">'+clean(x[4],x[6])+'</td>';tb.appendChild(tr)});
+</script></body></html>
