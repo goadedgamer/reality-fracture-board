@@ -1,6 +1,6 @@
 # Reality Fracture Adventure — Web Board
 
-Jace's spiral tower: 100 floors, two realities (warm **Multiverse** / cold **Echoverse**), Fracture Rifts, Reality Coin Flips on 60/90, and the Empower Jace meter. Built from `../BOARD_DESIGN.md`, `../PRIZE_LIST.csv`, `../QUICK_REFERENCE.md` and `../AI_OPERATOR_PROMPT.md`.
+Jace's spiral tower: 100 floors, two realities (warm **Multiverse** / cold **Echoverse**), Fracture Rifts, Reality Coin Flips (Multiverse 60/90, Echoverse 57/88), and the Empower Jace meter. Built from `../BOARD_DESIGN.md`, `../PRIZE_LIST.csv`, `../QUICK_REFERENCE.md` and `../AI_OPERATOR_PROMPT.md`.
 
 It's a plain static site. There's no build step, no server code, no accounts, and no network calls. All art is CSS/SVG made for this board, with no card art.
 
@@ -29,18 +29,18 @@ It's a plain static site. There's no build step, no server code, no accounts, an
 | `L` / **Flip lane** | Multiverse ↔ Echoverse, with a card-flip and glass-shimmer animation |
 | `J` / `Shift+J` / **+1 Jace / −1** | Empower Jace meter. At 5 the pips burst, the "BONUS LEVEL 1 SPIN!" banner shows, and the meter resets to 0. |
 | **Reset meter** | sets the meter to 0/5 (asks first) |
-| `F` / **Flip the Reality Coin** | only enabled on 60 or 90. A 3D coin toss uses `crypto.getRandomValues`. **Heads = 2 Reality Fracture Play Boosters, Tails = 1 Reality Fracture Collector Booster.** Results are logged. A second flip on the same visit asks for confirmation. |
+| `F` / **Flip the Reality Coin** | only enabled on the current lane's coin spaces (Multiverse 60/90, Echoverse 57/88). A 3D coin toss uses `crypto.getRandomValues`. **Heads = 2 Reality Fracture Play Boosters, Tails = 1 Reality Fracture Collector Booster.** Results are logged. A second flip on the same visit asks for confirmation. |
 | `Ctrl+Z` / **Undo** | steps back through the last 40 changes. After an auto-rift, the first undo removes only the rift and the second undoes the move. |
 | **Reset board…** | opens a dialog. You must type `RESET`. It sends the piece to Start and the lane to Multiverse. The Jace meter is kept unless you tick the box. No single key resets anything. |
 | `C` | hide/show the control panel (same as the old board) |
 | `+` / `−` / slider | camera zoom 1–3×, which follows the piece. Default is 1× (whole board). |
 | **Climber** box | optional customer name shown in the HUD and banners |
 
-The HUD always shows: the current zone (header banner), a big lane badge (MULTIVERSE/ECHOVERSE plus MV/EV text, so lane isn't shown by color alone), the floor number, the active lane's prize (the other lane's prize appears in small print), the Empower Jace meter x/5, and the zone legend. Tiles show the Multiverse prize on top and the Echoverse prize below a crack line. The inactive half is dimmed and frosted. Echoverse halves with a different prize category get a violet glow. Rift tiles are glowing portals labelled "RIFT +N → dest" with animated arc arrows. Spaces 60/90 have a gold-violet coin border. Prices are never shown.
+The HUD always shows: the current zone (header banner), a big lane badge (MULTIVERSE/ECHOVERSE plus MV/EV text, so lane isn't shown by color alone), the floor number, the active lane's prize (the other lane's prize appears in small print), the Empower Jace meter x/5, and the zone legend. Tiles show the Multiverse prize on top and the Echoverse prize below a crack line. The inactive half is dimmed and frosted. Echoverse halves with a different prize category get a violet glow. Rift tiles are glowing portals labelled "RIFT +N → dest" with animated arc arrows. Markers follow the **active lane**: that lane's booster/spin spaces get the big star medallion, its premium raw draws a small sparkle, and its coin-flip spaces the gold coin medallion. They reshuffle with a short animation on every lane flip (rifts and 100 never move). Prices are never shown.
 
 ## How sync works
 
-State (space, lane, meter, rift prompt, coin results, log) is saved in `localStorage` under `rfa-board-state-v1`, with a revision number. Every change is broadcast three ways. Every view listens to all three and keeps the highest revision:
+State (space, lane, meter, rift prompt, coin results, log) is saved in `localStorage` under `rfa-board-state-v1`, with a revision number. A copy served from a `/preview/` folder (or with `?ns=name`) uses `rfa-board-state-v1-preview` (or `-name`) and its own sync channel instead, so it can never disturb the live board on the same origin. Every change is broadcast three ways. Every view listens to all three and keeps the highest revision:
 
 1. `BroadcastChannel('rfa-board-sync')`: instant, between tabs of the same browser profile.
 2. The `storage` event: also instant, and it fires between OBS browser sources/docks.
